@@ -91,6 +91,12 @@
   .buff-chip{ font-family:'Rajdhani',sans-serif; font-weight:700; font-size:11px; padding:4px 9px; background:var(--bg-panel); border:1px solid var(--line); letter-spacing:0.04em; }
   #hint{ position:absolute; bottom:16px; left:50%; transform:translateX(-50%); font-size:11.5px; color:var(--text-dim); white-space:nowrap; }
 
+
+  #weaponModel{ position:absolute; right:28px; bottom:20px; width:270px; height:150px; pointer-events:none; }
+  #weaponModel canvas{ width:100%; height:100%; display:block; }
+  #weaponModelName{ position:absolute; right:10px; bottom:5px; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:12px; color:var(--text-dim); letter-spacing:.1em; text-align:right; }
+  #zonePanel{ position:absolute; top:86px; left:50%; transform:translateX(-50%); display:none; min-width:230px; text-align:center; }
+
   #hitFlash{ position:fixed; inset:0; background:rgba(255,60,30,0.18); opacity:0; pointer-events:none; z-index:19; transition:opacity 0.12s ease;}
   #bigMessage{ position:fixed; top:24%; left:50%; transform:translate(-50%,-50%); z-index:25; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:36px; letter-spacing:0.06em; color:var(--accent-gold); text-shadow:0 2px 18px rgba(0,0,0,0.6); opacity:0; pointer-events:none; transition:opacity 0.25s ease; text-align:center; }
 
@@ -132,6 +138,9 @@
         <option value="teams">Team Deathmatch</option>
         <option value="koth">King of the Hill</option>
         <option value="gungame">Gun Game</option>
+        <option value="domination">Domination</option>
+        <option value="bounty">Bounty Hunt</option>
+        <option value="elimination">Elimination</option>
         <option value="zombies">Zombie Apocalypse</option>
       </select>
     </div>
@@ -156,6 +165,11 @@
         <option value="4">Neon Grid</option>
         <option value="5">Rooftops</option>
         <option value="6">Sewer Tunnels</option>
+        <option value="7">Shipyard</option>
+        <option value="8">Temple Ruins</option>
+        <option value="9">Cyber Factory</option>
+        <option value="10">Canyon Arena</option>
+        <option value="11">Moon Station</option>
       </select>
       <label for="hatSelect">Hat</label>
       <select id="hatSelect">
@@ -172,6 +186,23 @@
     </div>
 
     <div class="row">
+      <label for="loadoutSelect">Starting gun</label>
+      <select id="loadoutSelect">
+        <option value="random" selected>Random</option>
+        <option value="pistol">Pistol</option>
+        <option value="revolver">Revolver</option>
+        <option value="smg">SMG</option>
+        <option value="shotgun">Shotgun</option>
+        <option value="rifle">Rifle</option>
+        <option value="burst">Burst Rifle</option>
+        <option value="carbine">Carbine</option>
+        <option value="railgun">Railgun</option>
+        <option value="grenadelauncher">Grenade Launcher</option>
+        <option value="plasma">Plasma Blaster</option>
+      </select>
+    </div>
+
+    <div class="row">
       <label for="botCount" id="botCountLabel">Opponents</label>
       <select id="botCount">
         <option value="3">3</option>
@@ -179,20 +210,38 @@
         <option value="7">7</option>
         <option value="9">9</option>
       </select>
-      <label for="matchLen">Match length</label>
+      <label for="matchLen">Time limit</label>
       <select id="matchLen">
-        <option value="90">90s</option>
+        <option value="30">30 sec</option>
+        <option value="60">1 min</option>
+        <option value="120">2 min</option>
         <option value="180" selected>3 min</option>
         <option value="300">5 min</option>
+        <option value="600">10 min</option>
+        <option value="0">No limit</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <label for="classSelect">Your class</label>
+      <select id="classSelect">
+        <option value="assault" selected>Assault — balanced</option>
+        <option value="scout">Scout — fast, low HP</option>
+        <option value="heavy">Heavy — tough, slower</option>
+        <option value="medic">Medic — self-healing</option>
+        <option value="engineer">Engineer — stronger barricades</option>
       </select>
     </div>
 
     <div class="row">
       <label for="difficultySelect">Bot difficulty</label>
       <select id="difficultySelect">
+        <option value="rookie">Rookie</option>
         <option value="easy">Easy</option>
         <option value="normal" selected>Normal</option>
         <option value="hard">Hard</option>
+        <option value="veteran">Veteran</option>
+        <option value="nightmare">Nightmare</option>
       </select>
       <label><input type="checkbox" id="muteToggle"> Mute SFX</label>
     </div>
@@ -249,6 +298,8 @@
   <div class="panel" id="killfeed" style="border:none;"></div>
 
   <div id="buffRow"></div>
+  <div id="zonePanel" class="panel"><div class="sb-title">CONTROL ZONES</div><div id="zoneList"></div></div>
+  <div id="weaponModel"><canvas id="weaponCanvas" width="270" height="150"></canvas><div id="weaponModelName"></div></div>
   <div id="reloadNote">RELOADING…</div>
   <div id="hint">R reload · Esc pause · walk over crates &amp; orbs</div>
 </div>
@@ -317,27 +368,43 @@
 
   // ================= Static data =================
   const WEAPONS = {
-    pistol:   { id:'pistol',   name:'Pistol',       dmg:17, cooldown:0.16, speed:780,  spread:0.05,  mag:18,  reload:1.4, pellets:1, color:'#6ee7de' },
-    revolver: { id:'revolver', name:'Revolver',     dmg:38, cooldown:0.45, speed:900,  spread:0.02,  mag:6,   reload:1.6, pellets:1, color:'#ffd27a' },
-    smg:      { id:'smg',      name:'SMG',          dmg:10, cooldown:0.07, speed:820,  spread:0.09,  mag:32,  reload:1.6, pellets:1, color:'#a3f7bf' },
-    shotgun:  { id:'shotgun',  name:'Shotgun',      dmg:9,  cooldown:0.75, speed:700,  spread:0.32,  mag:6,   reload:1.9, pellets:7, color:'#ffb454' },
-    crossbow: { id:'crossbow', name:'Crossbow',     dmg:80, cooldown:0.9,  speed:1000, spread:0.008, mag:1,   reload:1.3, pellets:1, color:'#a3f7bf' },
-    rifle:    { id:'rifle',    name:'Rifle',        dmg:22, cooldown:0.14, speed:900,  spread:0.03,  mag:24,  reload:1.9, pellets:1, color:'#8fd3ff' },
-    flamethrower:{id:'flamethrower', name:'Flamethrower', dmg:6, cooldown:0.045, speed:520, spread:0.2, mag:120, reload:2.6, pellets:1, color:'#ff7043', range:230 },
-    lmg:      { id:'lmg',      name:'LMG',          dmg:14, cooldown:0.09, speed:800,  spread:0.08,  mag:60,  reload:3.2, pellets:1, color:'#d5a3ff' },
-    sniper:   { id:'sniper',   name:'Sniper',       dmg:65, cooldown:1.1,  speed:1500, spread:0.006, mag:5,   reload:2.1, pellets:1, color:'#ff8a8a' },
-    rpg:      { id:'rpg',      name:'RPG',          dmg:70, cooldown:1.3,  speed:520,  spread:0.02,  mag:1,   reload:2.3, pellets:1, color:'#ffb454', explosive:true, splash:95 }
+    pistol:   { id:'pistol', name:'Pistol', dmg:17, cooldown:0.16, speed:780, spread:0.05, mag:18, reload:1.4, pellets:1, color:'#6ee7de', model:'pistol' },
+    revolver: { id:'revolver', name:'Revolver', dmg:38, cooldown:0.45, speed:900, spread:0.02, mag:6, reload:1.6, pellets:1, color:'#ffd27a', model:'revolver' },
+    smg:      { id:'smg', name:'SMG', dmg:10, cooldown:0.07, speed:820, spread:0.09, mag:32, reload:1.6, pellets:1, color:'#a3f7bf', model:'smg' },
+    shotgun:  { id:'shotgun', name:'Shotgun', dmg:9, cooldown:0.75, speed:700, spread:0.32, mag:6, reload:1.9, pellets:7, color:'#ffb454', model:'shotgun' },
+    crossbow: { id:'crossbow', name:'Crossbow', dmg:80, cooldown:0.9, speed:1000, spread:0.008, mag:1, reload:1.3, pellets:1, color:'#a3f7bf', model:'crossbow' },
+    rifle:    { id:'rifle', name:'Rifle', dmg:22, cooldown:0.14, speed:900, spread:0.03, mag:24, reload:1.9, pellets:1, color:'#8fd3ff', model:'rifle' },
+    burst:    { id:'burst', name:'Burst Rifle', dmg:19, cooldown:0.22, speed:980, spread:0.025, mag:24, reload:1.8, pellets:1, color:'#67e8f9', model:'burst' },
+    carbine:  { id:'carbine', name:'Carbine', dmg:27, cooldown:0.20, speed:1080, spread:0.018, mag:20, reload:1.7, pellets:1, color:'#c4b5fd', model:'carbine' },
+    railgun:  { id:'railgun', name:'Railgun', dmg:95, cooldown:1.35, speed:1800, spread:0.002, mag:3, reload:2.4, pellets:1, color:'#38bdf8', model:'railgun' },
+    grenadelauncher:{ id:'grenadelauncher', name:'Grenade Launcher', dmg:55, cooldown:1.05, speed:470, spread:0.035, mag:4, reload:2.3, pellets:1, color:'#f59e0b', model:'grenadelauncher', explosive:true, splash:115 },
+    plasma:   { id:'plasma', name:'Plasma Blaster', dmg:24, cooldown:0.11, speed:620, spread:0.07, mag:28, reload:1.9, pellets:1, color:'#c084fc', model:'plasma' },
+    flamethrower:{id:'flamethrower', name:'Flamethrower', dmg:6, cooldown:0.045, speed:520, spread:0.2, mag:120, reload:2.6, pellets:1, color:'#ff7043', range:230, model:'flamethrower' },
+    lmg:      { id:'lmg', name:'LMG', dmg:14, cooldown:0.09, speed:800, spread:0.08, mag:60, reload:3.2, pellets:1, color:'#d5a3ff', model:'lmg' },
+    sniper:   { id:'sniper', name:'Sniper', dmg:65, cooldown:1.1, speed:1500, spread:0.006, mag:5, reload:2.1, pellets:1, color:'#ff8a8a', model:'sniper' },
+    rpg:      { id:'rpg', name:'RPG', dmg:70, cooldown:1.3, speed:520, spread:0.02, mag:1, reload:2.3, pellets:1, color:'#ffb454', explosive:true, splash:95, model:'rpg' }
   };
   const WEAPON_IDS = Object.keys(WEAPONS);
-  const GUN_GAME_ORDER = ['pistol','revolver','smg','shotgun','crossbow','rifle','flamethrower','lmg','sniper','rpg'];
+  const GUN_GAME_ORDER = ['pistol','revolver','smg','shotgun','crossbow','rifle','burst','carbine','railgun','grenadelauncher','plasma','lmg','sniper','rpg'];
 
   const HATS = ['none','cap','helmet','tophat','halo','mohawk','beret','crown','ninja'];
   const BOT_NAMES = ["Vex","Kilo","Ronin","Ash","Nova","Talon","Byte","Crux","Ember","Rook","Sable","Dax","Jinx","Omen","Fray"];
   const BOT_COLORS = ["#ff8a5c","#ffb454","#c084fc","#60a5fa","#f472b6","#facc15","#fb7185","#4ade80","#38bdf8"];
   const DIFF = {
-    easy:  { cooldownMult:1.5, spreadMult:1.6, sight:0.75 },
-    normal:{ cooldownMult:1,   spreadMult:1,   sight:1 },
-    hard:  { cooldownMult:0.65,spreadMult:0.55,sight:1.25 }
+    rookie:   { cooldownMult:1.8, spreadMult:2.0, sight:0.65, botSpeed:0.78, botDamage:0.70 },
+    easy:     { cooldownMult:1.5, spreadMult:1.6, sight:0.78, botSpeed:0.88, botDamage:0.85 },
+    normal:   { cooldownMult:1.0, spreadMult:1.0, sight:1.0,  botSpeed:1.0,  botDamage:1.0 },
+    hard:     { cooldownMult:0.72,spreadMult:0.72,sight:1.2,  botSpeed:1.08, botDamage:1.15 },
+    veteran:  { cooldownMult:0.55,spreadMult:0.48,sight:1.38, botSpeed:1.18, botDamage:1.3 },
+    nightmare:{ cooldownMult:0.42,spreadMult:0.32,sight:1.6,  botSpeed:1.28, botDamage:1.5 }
+  };
+
+  const CLASS_STATS = {
+    assault:  { hp:100, speed:1.00, damage:1.00, heal:0, barricade:1.0, label:'ASSAULT' },
+    scout:    { hp:80,  speed:1.22, damage:0.90, heal:0, barricade:0.8, label:'SCOUT' },
+    heavy:    { hp:145, speed:0.78, damage:1.12, heal:0, barricade:1.0, label:'HEAVY' },
+    medic:    { hp:100, speed:1.00, damage:0.92, heal:2.5, barricade:0.9, label:'MEDIC' },
+    engineer: { hp:105, speed:0.96, damage:1.00, heal:0, barricade:1.8, label:'ENGINEER' }
   };
   const STREAK_LEVELS = [ {n:3,label:'Killing Spree'}, {n:5,label:'Rampage'}, {n:7,label:'Unstoppable'}, {n:10,label:'Godlike'} ];
 
@@ -401,7 +468,36 @@
     { name:"Sewer Tunnels", w:1600, h:1600, accent:'#4ade80', obstacles:[
         {x:0,y:0,w:600,h:600}, {x:1000,y:0,w:600,h:600},
         {x:0,y:1000,w:600,h:600}, {x:1000,y:1000,w:600,h:600}
-      ] }
+      ] },
+    { name:"Shipyard", w:2100, h:1350, accent:'#38bdf8', obstacles:
+      rectGrid(4,3,220,180,470,360,180,70).concat([
+        {x:850,y:520,w:400,h:45},{x:850,y:785,w:400,h:45},
+        {x:90,y:610,w:250,h:55},{x:1760,y:610,w:250,h:55}
+      ]) },
+    { name:"Temple Ruins", w:1850, h:1300, accent:'#f59e0b', obstacles:[
+      {x:180,y:180,w:260,h:55},{x:1410,y:180,w:260,h:55},
+      {x:180,y:1065,w:260,h:55},{x:1410,y:1065,w:260,h:55},
+      {x:600,y:250,w:80,h:300},{x:1170,y:250,w:80,h:300},
+      {x:600,y:750,w:80,h:300},{x:1170,y:750,w:80,h:300},
+      {x:820,y:520,w:210,h:260}
+    ] },
+    { name:"Cyber Factory", w:1900, h:1200, accent:'#a855f7', obstacles:
+      rectGrid(5,3,170,170,380,330,115,115).concat([
+        {x:760,y:0,w:60,h:360},{x:1080,y:840,w:60,h:360}
+      ]) },
+    { name:"Canyon Arena", w:2300, h:1450, accent:'#fb7185', obstacles:[
+      {x:250,y:180,w:500,h:50},{x:1550,y:180,w:500,h:50},
+      {x:250,y:1220,w:500,h:50},{x:1550,y:1220,w:500,h:50},
+      {x:720,y:430,w:110,h:500},{x:1470,y:430,w:110,h:500},
+      {x:1000,y:620,w:300,h:80}
+    ] },
+    { name:"Moon Station", w:1800, h:1200, accent:'#e879f9', obstacles:[
+      {x:120,y:120,w:320,h:55},{x:1360,y:120,w:320,h:55},
+      {x:120,y:1025,w:320,h:55},{x:1360,y:1025,w:320,h:55},
+      {x:540,y:270,w:120,h:250},{x:1140,y:680,w:120,h:250},
+      {x:790,y:480,w:220,h:55},{x:790,y:665,w:220,h:55},
+      {x:860,y:530,w:80,h:140}
+    ] }
   ];
 
   // ================= Helpers =================
@@ -459,12 +555,16 @@
     teams: "Red vs Blue. Kills only count against the other team.",
     koth: "Hold the glowing zone alone to bank control points. Contested zones score nobody.",
     gungame: "Every kill upgrades your weapon. First to a kill with the RPG wins instantly.",
+    domination: "Capture three control zones. Holding more zones steadily builds your team score.",
+    bounty: "The player with the highest kill streak becomes the bounty. Eliminate them for bonus points.",
+    elimination: "No respawns. Clear the opposing side to win the round.",
     zombies: "You and survivor bots hold out against a growing horde. No respawns once you're down."
   };
   function refreshModeUI(){
     const m = modeSelect.value;
     teamRow.style.display = (m === 'teams') ? 'flex' : 'none';
     hordeRow.style.display = (m === 'zombies') ? 'flex' : 'none';
+    document.getElementById('loadoutSelect').disabled = (m === 'gungame');
     botCountLabel.textContent = (m === 'zombies') ? 'Survivor bots' : 'Opponents';
     modeHint.textContent = MODE_HINTS[m] || '';
   }
@@ -481,7 +581,9 @@
       botCount: parseInt(document.getElementById('botCount').value,10),
       matchLen: parseInt(document.getElementById('matchLen').value,10),
       horde: document.getElementById('hordeSelect').value,
+      loadout: document.getElementById('loadoutSelect').value,
       difficulty: document.getElementById('difficultySelect').value,
+      playerClass: document.getElementById('classSelect').value,
       mute: document.getElementById('muteToggle').checked
     };
     startScreen.style.display = 'none';
@@ -512,6 +614,11 @@
   document.addEventListener('keydown', e => {
     keys[e.key.toLowerCase()] = true;
     if (e.key.toLowerCase() === 'r') tryReload();
+    if (state && state.player && state.mode !== 'gungame'){
+      const map={'1':'pistol','2':'smg','3':'shotgun','4':'rifle','5':'burst','6':'carbine','7':'railgun','8':'grenadelauncher','9':'plasma','0':'rpg'};
+      const wid=map[e.key];
+      if(wid && WEAPONS[wid]){ state.player.weaponId=wid; state.player.mag=Math.min(state.player.mag,WEAPONS[wid].mag); state.player.reloading=false; }
+    }
     if (e.key.toLowerCase() === 'e') tryBuildBarricade();
   });
   document.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
@@ -560,11 +667,22 @@
       x:0,y:0,r:16,angle:0, hp:MAX_HP, maxHp:MAX_HP, shield:0,
       alive:true, kills:0, deaths:0, streak:0, canRespawn:true, respawnTimer:0,
       weaponId:'pistol', mag:WEAPONS.pistol.mag, reloading:false, reloadTimer:0, fireTimer:0,
-      speedBoostTimer:0, damageBoostTimer:0, invisTimer:0, hillScore:0, gunGameLevel:0,
+      speedBoostTimer:0, damageBoostTimer:0, invisTimer:0, hillScore:0, gunGameLevel:0, score:0, bounty:false, captureTime:0,
       hat:'none', aiType:'shooter', state:'patrol', patrolTarget:{x:0,y:0},
       strafeDir:1, thinkTimer:0, meleeTimer:0, barricadeMeleeTimer:0, spitTimer:0, target:null,
       zType:null, meleeDmg:12, meleeInterval:0.7, baseSpeed:0, speedPerWave:0, speedCap:0, idealDist:0, projSpeed:0
     }, base);
+  }
+
+  function applyClassStats(entity, classId){
+    const c = CLASS_STATS[classId] || CLASS_STATS.assault;
+    entity.classId = classId || 'assault';
+    entity.maxHp = c.hp;
+    entity.hp = c.hp;
+    entity.classSpeed = c.speed;
+    entity.classDamage = c.damage;
+    entity.classHeal = c.heal;
+    entity.classBarricade = c.barricade;
   }
 
   function initGame(opts){
@@ -574,24 +692,33 @@
 
     const player = makeEntity({
       id:'player', name:'YOU', isPlayer:true, color:'#2dd4bf', hat: opts.hat,
-      team: mode==='teams' ? opts.team : (mode==='zombies' ? 'survivor' : 'ffa'),
-      canRespawn: mode !== 'zombies'
+      classId: opts.playerClass || 'assault',
+      team: (mode==='teams'||mode==='domination'||mode==='elimination') ? opts.team : (mode==='zombies' ? 'survivor' : 'ffa'),
+      canRespawn: mode !== 'zombies' && mode !== 'elimination'
     });
+    applyClassStats(player, player.classId);
 
     const bots = [];
     const names = shuffle(BOT_NAMES.slice());
     for (let i=0;i<opts.botCount;i++){
       let team = 'ffa';
-      if (mode === 'teams') team = i < Math.ceil(opts.botCount/2) ? 'red' : 'blue';
+      if (mode === 'teams' || mode === 'domination' || mode === 'elimination') team = i < Math.ceil(opts.botCount/2) ? 'red' : 'blue';
       if (mode === 'zombies') team = 'survivor';
       bots.push(makeEntity({
         id:'bot'+i, name:names[i%names.length], isPlayer:false,
-        color: mode==='teams' ? (team==='red'?'#ff5630':'#3b9eff') : pick(BOT_COLORS),
+        color: (mode==='teams'||mode==='domination'||mode==='elimination') ? (team==='red'?'#ff5630':'#3b9eff') : pick(BOT_COLORS),
         team, hat: pick(HATS), weaponId: pick(WEAPON_IDS),
-        canRespawn: mode !== 'zombies'
+        classId: pick(['assault','scout','heavy','medic','engineer']),
+        canRespawn: mode !== 'zombies' && mode !== 'elimination'
       }));
+      applyClassStats(bots[bots.length-1], bots[bots.length-1].classId);
     }
     bots.forEach(b => { b.mag = WEAPONS[b.weaponId].mag; });
+    const startingWeapon = (opts.loadout && opts.loadout !== 'random' && WEAPONS[opts.loadout]) ? opts.loadout : pick(['pistol','smg','rifle','shotgun','burst','carbine','plasma']);
+    player.weaponId = startingWeapon; player.mag = WEAPONS[player.weaponId].mag;
+    if (mode === 'domination' || mode === 'elimination') {
+      bots.forEach(b => { b.weaponId = pick(['smg','rifle','shotgun','burst','carbine','plasma','lmg']); b.mag = WEAPONS[b.weaponId].mag; });
+    }
 
     const p0 = spawnPoint(map, player.team==='red'||player.team==='blue' ? player.team : null);
     player.x=p0.x; player.y=p0.y;
@@ -606,7 +733,7 @@
     }
     if (mode === 'zombies'){
       player.weaponId = 'rifle'; player.mag = WEAPONS.rifle.mag;
-      bots.forEach(b => { b.weaponId = pick(['pistol','smg','rifle','shotgun','flamethrower']); b.mag = WEAPONS[b.weaponId].mag; });
+      bots.forEach(b => { b.weaponId = pick(['pistol','smg','rifle','shotgun','burst','carbine','plasma','flamethrower']); b.mag = WEAPONS[b.weaponId].mag; });
     }
 
     const pickups = [];
@@ -631,6 +758,12 @@
       barricades:[], lastBuildTime:-999,
       timeLeft: opts.matchLen, matchLen: opts.matchLen, camX:0, camY:0, over:false, paused:false,
       hill: mode==='koth' ? { x: map.w/2, y: map.h/2, r: 130, target: 100 } : null,
+      zones: (mode==='domination') ? [
+        {id:'A',x:map.w*0.22,y:map.h*0.5,r:105,owner:null,progress:0},
+        {id:'B',x:map.w*0.5,y:map.h*0.5,r:105,owner:null,progress:0},
+        {id:'C',x:map.w*0.78,y:map.h*0.5,r:105,owner:null,progress:0}
+      ] : [],
+      teamScore:{red:0,blue:0}, bountyTarget:null,
       wave: 1, waveTimer: waveTimeBase, waveTimeBase, zombieSpawnTimer: 1.5, hordeMult, nightmare,
       zombiesKilled: 0, gunGameWinnerName: null, muted: !!opts.mute,
       diff: DIFF[opts.difficulty] || DIFF.normal, hudTick: 0,
@@ -648,7 +781,7 @@
 
   function canTarget(attacker, target){
     if (!target.alive || target.id === attacker.id) return false;
-    if (state.mode === 'teams') return target.team !== attacker.team;
+    if (state.mode === 'teams' || state.mode === 'domination' || state.mode === 'elimination') return target.team !== attacker.team;
     if (state.mode === 'zombies') return !!target.isZombie !== !!attacker.isZombie;
     return true;
   }
@@ -730,7 +863,7 @@
     for (const lvl of STREAK_LEVELS){
       if (killer.streak === lvl.n){
         if (killer.isPlayer) flashBig(lvl.label + '!');
-        else addKillfeed(killer.name + ' is on a ' + lvl.label + '!', killer. );
+        else addKillfeed(killer.name + ' is on a ' + lvl.label + '!', killer.color);
         break;
       }
     }
@@ -747,6 +880,12 @@
       addKillfeed(killerName + ' eliminated ' + victimName, killer.color);
       checkStreak(killer);
       if (killer.isPlayer) playTone(880,0.15,'triangle',0.06);
+      killer.score = (killer.score || 0) + (killer.bounty ? 3 : 1);
+      if (state.mode === 'bounty' && victim.bounty) {
+        killer.score += 5;
+        victim.bounty = false;
+        flashBig((killer.isPlayer ? 'BOUNTY CLAIMED +5' : killer.name + ' CLAIMED THE BOUNTY'), 1200);
+      }
       if (state.mode === 'gungame'){
         killer.gunGameLevel++;
         if (killer.gunGameLevel >= GUN_GAME_ORDER.length){ state.gunGameWinnerName = killerName; endMatch(); return; }
@@ -779,7 +918,7 @@
       state.bullets.push({
         x:mx, y:my, vx:Math.cos(spreadAngle)*w.speed, vy:Math.sin(spreadAngle)*w.speed,
         ownerId: entity.id, ownerTeam: entity.team, ownerIsZombie: !!entity.isZombie,
-        damage: w.dmg * dmgMult, life: bulletLife, explosive: !!w.explosive, splash: w.splash||0, color: w.color
+        damage: w.dmg * dmgMult * (entity.classDamage || 1) * (entity.isPlayer ? 1 : (state.diff.botDamage || 1)), life: bulletLife, explosive: !!w.explosive, splash: w.splash||0, color: w.color
       });
     }
     spawnMuzzle(entity.x + Math.cos(aimAngle)*entity.r*1.4, entity.y + Math.sin(aimAngle)*entity.r*1.4, aimAngle);
@@ -803,6 +942,88 @@
         if (e.isPlayer){ document.getElementById('reloadNote').style.display = 'none'; playTone(300,0.05,'square',0.03); }
       }
     }
+  }
+
+  // ================= Expanded modes =================
+  function updateDomination(dt){
+    const s = state;
+    for (const z of s.zones){
+      const occupants = allEntities().filter(e => e.alive && !e.isZombie && Math.hypot(e.x-z.x,e.y-z.y) < z.r);
+      const red = occupants.filter(e=>e.team==='red').length;
+      const blue = occupants.filter(e=>e.team==='blue').length;
+      if (red && !blue) z.progress = Math.min(100, z.progress + dt*18);
+      else if (blue && !red) z.progress = Math.max(-100, z.progress - dt*18);
+      if (z.progress >= 100) z.owner='red';
+      else if (z.progress <= -100) z.owner='blue';
+    }
+    const gain = dt * 2.2;
+    s.zones.forEach(z=>{ if(z.owner) s.teamScore[z.owner] += gain; });
+    if (s.teamScore.red >= 100 || s.teamScore.blue >= 100){ endMatch(); }
+  }
+
+  function updateBounty(){
+    if (!state || state.mode !== 'bounty') return;
+    const candidates = [state.player].concat(state.bots).filter(e=>e.alive);
+    if (!candidates.length) return;
+    const target = candidates.sort((a,b)=>((b.kills*3+b.streak)-(a.kills*3+a.streak)))[0];
+    [state.player].concat(state.bots).forEach(e=>e.bounty = e.id === target.id);
+    state.bountyTarget = target.id;
+  }
+
+  function checkElimination(){
+    if (state.mode !== 'elimination') return;
+    const red = [state.player].concat(state.bots).filter(e=>e.team==='red' && e.alive).length;
+    const blue = [state.player].concat(state.bots).filter(e=>e.team==='blue' && e.alive).length;
+    if (!red || !blue) endMatch();
+  }
+
+  function drawGunModel(e){
+    const w = WEAPONS[e.weaponId];
+    if (!w) return;
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(e.angle);
+    const c = w.color || '#e8ecef';
+    ctx.lineCap='square'; ctx.lineJoin='miter';
+    // compact top-down weapon silhouette; each class gets a distinct body/barrel profile
+    let body=18, barrel=25, thick=5;
+    if (w.model==='pistol'){ body=16; barrel=22; thick=5; }
+    if (w.model==='revolver'){ body=18; barrel=26; thick=6; }
+    if (w.model==='smg'){ body=22; barrel=30; thick=6; }
+    if (w.model==='shotgun'){ body=25; barrel=35; thick=7; }
+    if (w.model==='crossbow'){ body=24; barrel=31; thick=4; }
+    if (w.model==='rifle'||w.model==='burst'||w.model==='carbine'){ body=28; barrel=40; thick=5; }
+    if (w.model==='railgun'||w.model==='sniper'){ body=30; barrel=48; thick=4; }
+    if (w.model==='grenadelauncher'||w.model==='rpg'){ body=30; barrel=42; thick=9; }
+    if (w.model==='plasma'){ body=25; barrel=34; thick=7; }
+    if (w.model==='flamethrower'||w.model==='lmg'){ body=28; barrel=37; thick=8; }
+    ctx.fillStyle='#11151a'; ctx.fillRect(e.r*0.45,-thick/2,body,thick);
+    ctx.fillStyle=c; ctx.fillRect(e.r*0.45+body-4,-thick/2-1,barrel,thick+2);
+    ctx.fillStyle='#2f3740'; ctx.fillRect(e.r*0.55,thick/2,Math.max(7,body*0.45),7);
+    if (w.model==='revolver'){ ctx.strokeStyle=c; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(e.r*0.72,0,5,0,Math.PI*2); ctx.stroke(); }
+    if (w.model==='shotgun'||w.model==='rpg'||w.model==='grenadelauncher'){ ctx.strokeStyle='#0b0d10'; ctx.lineWidth=2; ctx.strokeRect(e.r*0.45+body+3,-thick/2-1,barrel,thick+2); }
+    if (w.model==='railgun'||w.model==='sniper'){ ctx.fillStyle='rgba(255,255,255,.7)'; ctx.fillRect(e.r*0.8,-7,8,3); }
+    ctx.restore();
+  }
+
+  function drawWeaponHUD(){
+    const wc=document.getElementById('weaponCanvas');
+    if(!wc) return;
+    const c=wc.getContext('2d');
+    c.clearRect(0,0,wc.width,wc.height);
+    if(!state || !state.player) return;
+    const w=WEAPONS[state.player.weaponId];
+    c.save(); c.translate(58,82);
+    c.rotate(-0.12);
+    c.fillStyle='rgba(0,0,0,.55)'; c.fillRect(0,-12,155,24);
+    c.fillStyle='#202830'; c.fillRect(12,8,52,24);
+    c.fillStyle=w.color; c.fillRect(42,-7,105,14);
+    c.fillStyle='#56616c'; c.fillRect(18,20,28,8);
+    if(w.model==='shotgun'||w.model==='rpg'||w.model==='grenadelauncher') c.fillStyle='#0b0d10', c.fillRect(142,-9,34,18);
+    if(w.model==='railgun'||w.model==='sniper') c.fillStyle='#d9e1e8', c.fillRect(82,-18,22,4);
+    if(w.model==='revolver'){ c.strokeStyle=w.color; c.lineWidth=4; c.beginPath(); c.arc(50,0,9,0,Math.PI*2); c.stroke(); }
+    c.restore();
+    document.getElementById('weaponModelName').textContent=w.name.toUpperCase()+'  •  '+state.player.mag+'/'+w.mag;
   }
 
   // ================= Pause / quit =================
@@ -843,13 +1064,21 @@
 
     refreshEntities();
 
-    s.timeLeft -= dt;
-    if (s.timeLeft <= 0){ s.timeLeft = 0; endMatch(); return; }
+    if (s.matchLen > 0){
+      s.timeLeft -= dt;
+      if (s.timeLeft <= 0){ s.timeLeft = 0; endMatch(); return; }
+    }
+    if (s.player.alive && s.player.classHeal > 0 && s.player.hp < s.player.maxHp){
+      s.player.hp = Math.min(s.player.maxHp, s.player.hp + s.player.classHeal * dt);
+    }
 
     updatePlayer(dt);
     s.bots.forEach(b => updateBot(b, dt));
+    if (s.mode === 'elimination') checkElimination();
     if (s.mode === 'zombies') updateZombieMode(dt);
     if (s.mode === 'koth') updateHill(dt);
+    if (s.mode === 'domination') updateDomination(dt);
+    if (s.mode === 'bounty') updateBounty();
 
     updateBullets(dt);
     updateParticles(dt);
@@ -879,8 +1108,9 @@
     const speedMult = p.speedBoostTimer > 0 ? 1.6 : 1;
     if (dx||dy){
       const len = Math.hypot(dx,dy); dx/=len; dy/=len;
-      p.x += dx*PLAYER_SPEED*speedMult*dt;
-      p.y += dy*PLAYER_SPEED*speedMult*dt;
+      const classSpeed = p.classSpeed || 1;
+      p.x += dx*PLAYER_SPEED*speedMult*classSpeed*dt;
+      p.y += dy*PLAYER_SPEED*speedMult*classSpeed*dt;
     }
     const clamped = clampToWorld(p.x, p.y, p.r, s.map);
     p.x = clamped.x; p.y = clamped.y;
@@ -940,8 +1170,9 @@
       mvy += Math.sin(perp)*b.strafeDir*0.6;
       const len = Math.hypot(mvx,mvy)||1;
       const speedMult = b.speedBoostTimer>0?1.6:1;
-      b.x += (mvx/len)*BOT_SPEED*speedMult*dt;
-      b.y += (mvy/len)*BOT_SPEED*speedMult*dt;
+      const classSpeed = b.classSpeed || 1;
+      b.x += (mvx/len)*BOT_SPEED*speedMult*classSpeed*(s.diff.botSpeed || 1)*dt;
+      b.y += (mvy/len)*BOT_SPEED*speedMult*classSpeed*(s.diff.botSpeed || 1)*dt;
 
       const spread = (Math.random()-0.5)*0.06*s.diff.spreadMult;
       fireWeapon(b, b.angle+spread, s.diff.cooldownMult);
@@ -950,7 +1181,7 @@
       const dx = b.patrolTarget.x-b.x, dy = b.patrolTarget.y-b.y;
       const d = Math.hypot(dx,dy);
       if (d < 30){ b.patrolTarget = spawnPoint(s.map, (b.team==='red'||b.team==='blue')?b.team:null); }
-      else { b.angle = Math.atan2(dy,dx); b.x += (dx/d)*BOT_SPEED*0.55*dt; b.y += (dy/d)*BOT_SPEED*0.55*dt; }
+      else { b.angle = Math.atan2(dy,dx); const patrolSpeed=BOT_SPEED*0.55*(b.classSpeed||1)*(s.diff.botSpeed||1); b.x += (dx/d)*patrolSpeed*dt; b.y += (dy/d)*patrolSpeed*dt; }
     }
 
     const clamped = clampToWorld(b.x, b.y, b.r, s.map);
@@ -1217,7 +1448,7 @@
     document.getElementById('weaponName').textContent = weaponLabel(p);
 
     const mins = Math.floor(s.timeLeft/60), secs = Math.floor(s.timeLeft%60);
-    document.getElementById('timer').textContent = String(mins).padStart(2,'0')+':'+String(secs).padStart(2,'0');
+    document.getElementById('timer').textContent = s.matchLen === 0 ? '∞' : String(mins).padStart(2,'0')+':'+String(secs).padStart(2,'0');
 
     const buffRow = document.getElementById('buffRow');
     let buffHtml = '';
@@ -1226,6 +1457,7 @@
     if (p.shield>0) buffHtml += '<div class="buff-chip" style="color:#3b9eff;">SHIELD</div>';
     if (p.invisTimer>0) buffHtml += '<div class="buff-chip" style="color:#a78bfa;">INVISIBLE</div>';
     if (p.streak>=2) buffHtml += '<div class="buff-chip" style="color:#f5c344;">STREAK x'+p.streak+'</div>';
+    if (p.classId) buffHtml += '<div class="buff-chip" style="color:#2dd4bf;">'+((CLASS_STATS[p.classId]||CLASS_STATS.assault).label)+'</div>';
     buffRow.innerHTML = buffHtml;
   }
 
@@ -1241,6 +1473,7 @@
     const modeExtra = document.getElementById('modeExtra');
     const hillTrack = document.getElementById('hillBarTrack');
     hillTrack.style.display = 'none';
+    document.getElementById('zonePanel').style.display='none';
 
     if (s.mode === 'teams'){
       const red = [p].concat(s.bots).filter(e=>e.team==='red').reduce((a,e)=>a+e.kills,0);
@@ -1253,6 +1486,19 @@
       document.getElementById('hillBarFill').style.width = leader ? Math.min(100, leader.hillScore/s.hill.target*100)+'%' : '0%';
     } else if (s.mode === 'gungame'){
       modeExtra.textContent = 'Weapon tier ' + (p.gunGameLevel+1) + ' / ' + GUN_GAME_ORDER.length;
+      } else if (s.mode === 'domination'){
+      modeExtra.textContent = 'RED ' + Math.floor(s.teamScore.red) + ' — BLUE ' + Math.floor(s.teamScore.blue);
+      document.getElementById('zonePanel').style.display='block';
+      document.getElementById('zoneList').innerHTML=s.zones.map(z=>'<div class="sb-row"><span>'+z.id+'</span><span style="color:'+(z.owner==='red'?'#ff5630':z.owner==='blue'?'#3b9eff':'#9aa4ad')+'">'+(z.owner?z.owner.toUpperCase():'CONTESTED')+'</span></div>').join('');
+    } else if (s.mode === 'bounty'){
+      const b=[s.player].concat(s.bots).find(e=>e.id===s.bountyTarget);
+      modeExtra.textContent = b ? 'BOUNTY: '+(b.isPlayer?'YOU':b.name) : 'No bounty';
+      document.getElementById('zonePanel').style.display='none';
+    } else if (s.mode === 'elimination'){
+      const red=[s.player].concat(s.bots).filter(e=>e.team==='red'&&e.alive).length;
+      const blue=[s.player].concat(s.bots).filter(e=>e.team==='blue'&&e.alive).length;
+      modeExtra.textContent='RED '+red+' — BLUE '+blue;
+      document.getElementById('zonePanel').style.display='none';
     } else if (s.mode === 'zombies'){
       const aliveSurv = [p].concat(s.bots).filter(e=>e.alive).length;
       modeExtra.textContent = 'Wave ' + s.wave + ' · Survivors ' + aliveSurv + ' · Kills ' + s.zombiesKilled;
@@ -1404,11 +1650,7 @@
     ctx.beginPath(); ctx.arc(0,0,e.r,0,Math.PI*2); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2; ctx.stroke();
 
-    ctx.save();
-    ctx.rotate(e.angle);
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.fillRect(e.r*0.3, -3, e.r*1.1, 6);
-    ctx.restore();
+    drawGunModel(e);
 
     if (e.hat && e.hat !== 'none') drawHat(e.hat, e.r);
     ctx.restore();
@@ -1564,6 +1806,7 @@
     ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
 
     drawMinimap();
+    drawWeaponHUD();
 
     if (running && !state.over){
       ctx.strokeStyle = state.player.alive ? '#e8ecef' : '#555'; ctx.lineWidth = 1.5;
